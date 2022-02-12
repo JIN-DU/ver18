@@ -1,0 +1,59 @@
+import pyupbit
+import time
+import datetime
+import numpy as np
+
+access = "aa"
+secret = "aa"
+upbit = pyupbit.Upbit(access, secret)
+   
+tickers = ("KRW-REP", "KRW-NEAR", "KRW-WAVES", "KRW-QTUM", "KRW-FLOW", "KRW-WEMIX", "KRW-GAS", "KRW-OMG", "KRW-SBD", "KRW-TON", # 10
+           "KRW-SAND", "KRW-XTZ", "KRW-KAVA", "KRW-THETA", "KRW-LSK", "KRW-MANA", "KRW-AQT", "KRW-CBK", "KRW-SRM", "KRW-EOS", # 20
+           "KRW-KNC", "KRW-DAWN", "KRW-ENJ", "KRW-1INCH", "KRW-MTL", "KRW-MATIC", "KRW-STX", "KRW-SXP", "KRW-STORJ", "KRW-STRAX", # 30
+           "KRW-BORA", "KRW-ADA", "KRW-HIVE", "KRW-PLA", "KRW-ARK", "KRW-ALGO", "KRW-IOTA", "KRW-BAT", "KRW-MLK", "KRW-BAT", # 40
+           "KRW-PUNDIX", "KRW-ICX", "KRW-HUNT", "KRW-ONG", "KRW-XRP", "KRW-ZRX", "KRW-GRS", "KRW-POWR", "KRW-ONT", "KRW-NU", # 50
+           "KRW-POLY","KRW-CRO", "KRW-GLM", "KRW-ELF", "KRW-WAXP", "KRW-STEEM", "KRW-CVC", "KRW-HUM", "KRW-HBAR","KRW-XLM", # 60
+           "KRW-ARDR", "KRW-AERGO", "KRW-CHZ", "KRW-MOC", "KRW-TFUEL", "KRW-DOGE", "KRW-UPP", "KRW-FCT2", "KRW-XEM", "KRW-DKA", # 70
+           "KRW-STPT","KRW-ANKR") # 72 종목
+
+close_time = time.time() + (3600*12 + 0) # 경과시간 지정(초) 1시간=3600초
+print(time.strftime('%m-%d %H:%M:%S'),"--시작--")
+
+while time.time() < close_time :
+    for ticker in tickers :
+        while upbit.get_balance() > 510000 :             # upbit.get_balance(ticker) * pyupbit.get_current_price([ticker]) < 5000 매수 조건 추가
+            data = pyupbit.get_ohlcv(ticker, "minute1", count=4)
+            close_cost = data['close'] # 종가
+            volume = data['volume'] # 6분간 거래량 / volume[-1] = 현재거래량
+            ma5 = volume.rolling(3).mean() # 5분간 이동평균 거래량
+            now_cost = pyupbit.get_current_price([ticker])
+            
+            if (now_cost >= close_cost[-2] * 1.01) and (volume[-1] >= ma5[-2] * 2) and (now_cost * volume[-1] >= 50000000) : # 5천만원이상 
+                upbit.buy_market_order(ticker, 5100)
+                print(time.strftime('%m-%d %H:%M:%S'), ticker, "/", upbit.get_avg_buy_price(ticker),"/ 매수")    
+                break     # 이것을 넣지 않으면 조건 맞는 한종목만 계속 매수
+            else :
+                break
+        # time.sleep(0.01)
+        
+    for ticker in tickers :
+        while upbit.get_balance(ticker) >  0 : #해당 종목 보유 수량 있다면
+            now_cost = pyupbit.get_current_price(ticker) #현재가
+            unit = upbit.get_balance(ticker) #해당 종목 보유 수량
+            avg_cost = upbit.get_avg_buy_price(ticker) # 평균매수가
+            data = pyupbit.get_ohlcv(ticker, "minute1", count=4)
+            high_cost = data['high'] # 전고가 기록
+            high = [high_cost[-1], high_cost[-2], high_cost[-3]] # 현/ 1분전/ 2분전 전고가
+            
+            if (now_cost * unit >= 5010) and (now_cost <= max(high) * 0.97) : # (now_cost > avg_cost * 1.02 ) or (now_cost < avg_cost * 0.985)
+                upbit.sell_market_order(ticker, unit) # 보유량 전체 매도
+                print(time.strftime('%m-%d %H:%M:%S'),ticker,"/", now_cost,"/", "매도 / 수익률 : ", "%0.4f" %(now_cost/avg_cost))
+            else :
+                break  
+        # time.sleep(0.01)  
+             
+    if time.time() > close_time :
+        print(time.strftime('%m-%d %H:%M:%S'), "--종료--")
+        break
+    else : 
+        pass 
